@@ -95,7 +95,7 @@ https://nuancesprog.ru/p/14464/
 
 > Фокус на безопасности - как решение проблем C и C++
 
-Иммутабельность переменных по умолчанию, новая парадигма работы с памятью: borrowing и ownership. Решение Race Condition, Memory leaks, dangling pointers, buffer overflows.
+Иммутабельность переменных по умолчанию, новая парадигма работы с памятью: borrowing и ownership. Решение Race Condition, Memory leaks, dangling pointers, buffer overflows, double free memory.
 
 # Установка Rust
 
@@ -856,15 +856,92 @@ fn main() {
 
 # Работа с памятью ownership и borrowing
 
->Вот мы и добрались до самого интересного, как Rust'у удалось решить проблему memory leaks (утечки памяти), dangling pointers (висячие указатели) без использования garbage collector (сборщик мусора), что позволяет быть равным по производительности C/C++, а где то даже и быстрее. Этот раздел я бы назвал важнейшим, ведь он и рассказывает о главных особенностях Rust, о том, чего нет в других языках. В целом даст хороший повод задуматься о том, а не попробовать ли мне тоже...
-
-
+>Вот мы и добрались до самого интересного, как Rust'у удалось решить проблему memory leaks (утечки памяти), dangling pointers (висячие указатели) без использования garbage collector (сборщик мусора), что позволяет быть равным по производительности C/C++, а где то даже и быстрее. Этот раздел я бы назвал важнейшим, ведь он и рассказывает о главных особенностях Rust...
 
 Если в кратце - две концепции которые автоматизируют выделение/освобождение памяти как в C/C++ и не требуют для этого сборщик мусора в рантайме, который замедляет работу.
 
 Если подробнее:
 
-ownership
+Правила владения
+
+Сначала давайте рассмотрим правила владения:
+
+    - У каждого значения в Rust есть владелец
+    - В каждый момент времени может быть только один владелец
+    - Когда владелец выходит из области действия, значение будет сброшено
+
+Область действия (всё тоже самое что и в других ЯП):
+
+Пример со строковым литералом, строго закодированном на этапе компиляции
+
+```Rust
+{                       // s is not valid here, it’s not yet declared
+    let s = "hello";    // s is valid from this point forward
+                        // do stuff with s but not mutating
+}                       // this scope is now over, and s is no longer valid
+
+```
+
+Выделение string в куче. Если хотим менять
+
+Память автоматически возвращается, как только переменная, которой она принадлежит, выходит из области видимости.
+
+```Rust
+{
+    let s = String::from("hello");
+    s.push_str(", world!"); // push_str() appends a literal to a String
+    println!("{s}"); // This will print `hello, world!`
+}
+```
+
+Когда она выходит из области видимости Rust вызывает деструктор drop автоматически.
+
+https://doc.rust-lang.org/std/ops/trait.Drop.html#tymethod.drop
+
+В C++ этот шаблон освобождения ресурсов в конце жизненного цикла элемента иногда называется Resource Acquisition Is Initialization (RAII)
+
+![alt text](image-18.png)
+
+![alt text](image-19.png)
+
+>Важно! Чтобы не было двойного освобождения, Rust сделает s1 недействительной! Это сделано, чтобы уйти от проблемы двойного освобождения. 
+
+Не скомпилируется:
+
+```Rust
+fn main() {
+    let s1 = String::from("hello");
+    let s2 = s1;
+
+    println!("{s1}, world!");
+}
+```
+
+```Shell
+$ cargo run
+   Compiling ownership v0.1.0 (file:///projects/ownership)
+error[E0382]: borrow of moved value: `s1`
+ --> src/main.rs:5:15
+  |
+2 |     let s1 = String::from("hello");
+  |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+3 |     let s2 = s1;
+  |              -- value moved here
+4 |
+5 |     println!("{s1}, world!");
+  |               ^^^^ value borrowed here after move
+  |
+  = note: this error originates in the macro `$crate::format_args_nl` which comes from the expansion of the macro `println` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider cloning the value if the performance cost is acceptable
+  |
+3 |     let s2 = s1.clone();
+  |                ++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `ownership` (bin "ownership") due to 1 previous error
+```
+
+
 
 ```Rust
 fn main() {
@@ -995,6 +1072,8 @@ fn main() {
 ```
 
 # Продукты на rust
+
+# Rust в DevOps
 
 # Type assertion
 
