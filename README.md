@@ -1674,7 +1674,115 @@ fn main() {
 
 # Cargo
 
+my_project/
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   ├── lib.rs
+│   ├── utils/
+│   │   ├── file_io.rs
+│   │   └── network.rs
+│   └── geometry/
+│       └── shapes.rs
+└── tests/
+    └── integration_test.rs
+
+    Cargo.toml — файл конфигурации пакета.
+    src/main.rs — точка входа для исполняемого файла.
+    src/lib.rs — определение библиотечного crate.
+     
+         Crate  — это минимальная единица компиляции в Rust.
+    Каждый пакет содержит хотя бы один crate.
+    Существует два типа crates:
+        Binary crate:  Создает исполняемый файл (обычно с main.rs).
+        Library crate:  Создает библиотеку (обычно с lib.rs).
+         
+     
+```toml
+[package]
+name = "my_project"
+version = "0.1.0"
+edition = "2021"
+
+# Binary crate
+[[bin]]
+name = "my_binary"
+path = "src/bin/my_binary.rs"
+
+# Library crate
+[lib]
+name = "my_library"
+```
+
+my_project/
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   └── math.rs
+
+math.rs
+```Rust
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+```
+
+main.rs
+```Rust
+mod math; // Подключаем модуль из math.rs
+
+fn main() {
+    let result = math::add(2, 3);
+    println!("Result: {}", result);
+}
+```
+
+my_project/
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   ├── math.rs
+│   └── geometry/
+│       └── shapes.rs
+
+
+geometry/shapes.rs:
+```Rust
+pub fn area_of_square(side: i32) -> i32 {
+    side * side
+}
+```
+
+math.rs:
+```Rust
+pub mod geometry; // Подключаем подмодуль geometry
+
+pub fn calculate_area(side: i32) -> i32 {
+    geometry::shapes::area_of_square(side)
+}
+```
+
+main.rs:
+```Rust
+mod math;
+
+fn main() {
+    let area = math::calculate_area(5);
+    println!("Area: {}", area);
+}
+```
+
+Разделение на библиотеки и исполняемые файлы:  
+
+    src/lib.rs для основной логики.
+    src/main.rs для точки входа.
+    src/bin/ для дополнительных исполняемых файлов.
+     
+
+
 ### Экосистема crates.io
+
+Внешние библиотеки от пользователей
 
 ### Сборка проекта из исходников на C и C++ если в кратце:
 
@@ -1767,6 +1875,10 @@ Godot Engine:
 
     Если вас интересует использование Rust для игровых проектов, обратите внимание на Godot Engine, который имеет официальную поддержку Rust через GDExtension API.
     Это более простой и прямолинейный путь для разработки игр на Rust.
+
+Solana
+
+npm
      
 
 # Rust в DevOps
@@ -1803,7 +1915,7 @@ Godot Engine:
 
 # Ищу всех кто готов изучать Rust вместе!
 
-https://t.me/s21_rust - 
+https://t.me/s21_rust - я создал неофициальный канал школы по Rust. Разбил по тредам
 
 > Читаем Rust Book, делимся материалами и вакансиями, решаем leetcode, делаем пет-проекты, организовываем групповые проекты для портфолио, мотивируем и формируем сообщество Rustaceans в Школе 21!
 
