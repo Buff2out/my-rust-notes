@@ -7,6 +7,11 @@
 - [Функции](#Функции)
 - [Циклы](#Циклы)
 - [Работа с памятью ownership и borrowing](#Работа-с-памятью-ownership-и-borrowing)
+- [Structs](#Structs)
+- [enums](#enums)
+- [match null и использование Option Result](#match-null-и-использование-Option-Result)
+- [Unsafe rust.](#Unsafe-rust)
+
 
 # Почему я выбрал Rust
 
@@ -1490,7 +1495,7 @@ https://doc.rust-lang.org/std/option/enum.Option.html
 
 Подробнее как их складывать в следующем разделе:
 
-# match, null и использование Option/Result.
+# match null и использование Option Result
 
 >Spoiler к предыдущему:
 
@@ -1609,7 +1614,7 @@ For more information about this error, try `rustc --explain E0004`.
 error: could not compile `enums` (bin "enums") due to 1 previous error
 ```
 
-# if let
+## if let
 
 >Следующие два идентичны
 
