@@ -1,7 +1,11 @@
 fn main() {
-    let a = [1, 2, 3, 4, 5];
+    let x: Option<i8> = Some(5);
+    let y: Option<i8> = Some(5);
 
-    let slice = &a[1..3];
+    let sum = match (x, y) {
+        (Some(a), Some(b)) => Some(a + b), // Если оба значения есть, складываем их
+        _ => None,                       // В остальных случаях возвращаем None
+    };
 
-    assert_eq!(slice, &[2, 3]);
+    println!("{:?}", sum); // Выводит: Some(10)
 }

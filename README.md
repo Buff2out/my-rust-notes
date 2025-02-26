@@ -1226,7 +1226,411 @@ fn main() {
 }
 ```
 
-# Синтаксический сахар, match, null и использование Option/Result.
+# Structs
+
+```Rust
+struct User {
+    active: bool,
+    username: String,
+    email: String,
+    sign_in_count: u64,
+}
+```
+
+>Пример инициализации (можно улучшить своим конструктором, билдером) а так же сокращения.
+
+```Rust
+fn main() {
+    let user1 = User {
+        active: true,
+        username: String::from("someusername123"),
+        email: String::from("someone@example.com"),
+        sign_in_count: 1,
+    };
+    let user2 = User {
+        email: String::from("another@example.com"),
+        ..user1
+    };
+}
+```
+
+>Пример билдера
+
+```Rust
+fn build_user(email: String, username: String) -> User {
+    User {
+        active: true,
+        username: username,
+        email: email,
+        sign_in_count: 1,
+    }
+}
+```
+
+>Верхнее можно сократить
+
+```Rust
+fn build_user(email: String, username: String) -> User {
+    User {
+        active: true,
+        username,
+        email,
+        sign_in_count: 1,
+    }
+}
+```
+
+Когда можно обойтись кортежами
+
+```Rust
+struct Color(i32, i32, i32);
+struct Point(i32, i32, i32);
+
+fn main() {
+    let black = Color(0, 0, 0);
+    let origin = Point(0, 0, 0);
+}
+```
+
+
+
+
+<!-- Право собственности на данные Struct
+
+В Userопределении структуры в листинге 5-1 мы использовали Stringтип owned вместо &strтипа string slice. Это преднамеренный выбор, поскольку мы хотим, чтобы каждый экземпляр этой структуры владел всеми своими данными и чтобы эти данные были действительными до тех пор, пока действительна вся структура.
+
+Структуры также могут хранить ссылки на данные, принадлежащие чему-то другому, но для этого требуется использование времени жизни — функции Rust, которую мы обсудим в Главе 10. Время жизни гарантирует, что данные, на которые ссылается структура, будут действительными до тех пор, пока существует структура. Допустим, вы пытаетесь сохранить ссылку в структуре без указания времени жизни, как в следующем примере; это не сработает:
+
+```Rust
+struct User {
+    active: bool,
+    username: &str,
+    email: &str,
+    sign_in_count: u64,
+}
+
+fn main() {
+    let user1 = User {
+        active: true,
+        username: "someusername123",
+        email: "someone@example.com",
+        sign_in_count: 1,
+    };
+}
+``` -->
+
+>Если хотим просмотреть структуру через принт. Просто введём внешний атрибут. 
+
+```Rust
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+fn main() {
+    let rect1 = Rectangle {
+        width: 30,
+        height: 50,
+    };
+
+    println!("rect1 is {rect1:#?}");
+}
+```
+
+> Использование dbg!()
+
+```Rust
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+fn main() {
+    let scale = 2;
+    let rect1 = Rectangle {
+        width: dbg!(30 * scale),
+        height: 50,
+    };
+
+    dbg!(&rect1);
+}
+```
+
+## Method
+
+>Мы можем выбрать, чтобы дать методу то же имя, что и одно из полей структуры
+
+```Rust
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+    fn width(&self) -> bool {
+        self.width > 0
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle {
+        width: 30,
+        height: 50,
+    };
+
+    println!(
+        "The area of the rectangle is {} square pixels.",
+        rect1.area()
+    );
+}
+```
+
+![alt text](image-22.png)
+
+# enums
+
+```Rust
+enum IpAddrKind {
+    V4,
+    V6,
+}
+/*
+enum IpAddr {
+    V4(String),
+    V6(String),
+}
+enum IpAddr {
+    V4(u8, u8, u8, u8),
+    V6(String),
+}
+enum Message {
+    Quit,
+    Move { x: i32, y: i32 },
+    Write(String),
+    ChangeColor(i32, i32, i32),
+}
+*/
+struct IpAddr {
+    kind: IpAddrKind,
+    address: String,
+}
+
+let home = IpAddr {
+    kind: IpAddrKind::V4,
+    address: String::from("127.0.0.1"),
+};
+
+let loopback = IpAddr {
+    kind: IpAddrKind::V6,
+    address: String::from("::1"),
+};
+```
+
+Как в библиотеке организована работа с IpV4, IpV6.
+
+https://doc.rust-lang.org/std/net/enum.IpAddr.html
+
+## Null
+
+![alt text](image-23.png)
+
+## Option
+
+```Rust
+enum Option<T> {
+    None,
+    Some(T),
+}
+```
+
+<T> - это generic. Пока углубляться не буду
+
+>Не скомпилируется:
+
+```Rust
+fn main() {
+    let x: i8 = 5;
+    let y: Option<i8> = Some(5);
+
+    let sum = x + y;
+}
+```
+
+need impl
+
+```Shell
+$ cargo run
+   Compiling enums v0.1.0 (file:///projects/enums)
+error[E0277]: cannot add `Option<i8>` to `i8`
+ --> src/main.rs:5:17
+  |
+5 |     let sum = x + y;
+  |                 ^ no implementation for `i8 + Option<i8>`
+  |
+  = help: the trait `Add<Option<i8>>` is not implemented for `i8`
+  = help: the following other types implement trait `Add<Rhs>`:
+            `&'a i8` implements `Add<i8>`
+            `&i8` implements `Add<&i8>`
+            `i8` implements `Add<&i8>`
+            `i8` implements `Add`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `enums` (bin "enums") due to 1 previous error
+```
+
+Подробнее об Option:
+
+https://doc.rust-lang.org/std/option/enum.Option.html
+
+Подробнее как их складывать в следующем разделе:
+
+# match, null и использование Option/Result.
+
+>Spoiler к предыдущему:
+
+```Rust
+fn main() {
+    let x: Option<i8> = Some(5);
+    let y: Option<i8> = Some(5);
+
+    let sum = match (x, y) {
+        (Some(a), Some(b)) => Some(a + b), // Если оба значения есть, складываем их
+        _ => None,                       // В остальных случаях возвращаем None
+    };
+
+    println!("{:?}", sum); // Выводит: Some(10)
+
+    /*    
+    let x: Option<i8> = Some(5);
+    let y: Option<i8> = Some(5);
+
+    if let (Some(a), Some(b)) = (x, y) {
+        println!("Sum: {}", a + b); // Выводит: Sum: 10
+    } else {
+        println!("One of the values is None");
+    }
+    */
+    // unwrap() !Важно!:  Если хотя бы одно из значений будет None, программа вызовет panic!.
+    /*
+    let x: Option<i8> = Some(5);
+    let y: Option<i8> = Some(5);
+
+    let sum = x.unwrap() + y.unwrap(); // Просто извлекаем значения
+
+    println!("Sum: {}", sum); // Выводит: Sum: 10
+    */
+    // или ещё можно .unwrap_or(<туть значение по умолчанию по типу, если внезапно null>):
+}
+```
+
+## match
+
+```Rust
+enum Coin {
+    Penny,
+    Nickel,
+    Dime,
+    Quarter,
+}
+
+fn value_in_cents(coin: Coin) -> u8 {
+    match coin {
+        Coin::Penny => {
+            println!("Lucky penny!");
+            1
+        },
+        Coin::Nickel => 5,
+        Coin::Dime => 10,
+        Coin::Quarter => 25,
+    }
+}
+```
+
+>из предыдущего раздела:
+
+```Rust
+fn plus_one(x: Option<i32>) -> Option<i32> {
+    match x {
+        None => None,
+        Some(i) => Some(i + 1),
+    }
+}
+
+let five = Some(5);
+let six = plus_one(five);
+let none = plus_one(None);
+```
+
+>Не скомпилируется
+
+```Rust
+fn plus_one(x: Option<i32>) -> Option<i32> {
+    match x {
+        Some(i) => Some(i + 1),
+        /*
+        other => move_player(other),
+        _ => (),
+        */
+    }
+}
+```
+
+```Shell
+$ cargo run
+   Compiling enums v0.1.0 (file:///projects/enums)
+error[E0004]: non-exhaustive patterns: `None` not covered
+   --> src/main.rs:3:15
+    |
+3   |         match x {
+    |               ^ pattern `None` not covered
+    |
+note: `Option<i32>` defined here
+   --> file:///home/.rustup/toolchains/1.82/lib/rustlib/src/rust/library/core/src/option.rs:571:1
+    |
+571 | pub enum Option<T> {
+    | ^^^^^^^^^^^^^^^^^^
+...
+575 |     None,
+    |     ---- not covered
+    = note: the matched value is of type `Option<i32>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+4   ~             Some(i) => Some(i + 1),
+5   ~             None => todo!(),
+    |
+
+For more information about this error, try `rustc --explain E0004`.
+error: could not compile `enums` (bin "enums") due to 1 previous error
+```
+
+# if let
+
+>Следующие два идентичны
+
+```Rust
+let config_max = Some(3u8);
+match config_max {
+    Some(max) => println!("The maximum is configured to be {max}"),
+    _ => (),
+}
+```
+
+```Rust
+let config_max = Some(3u8);
+if let Some(max) = config_max {
+    println!("The maximum is configured to be {max}");
+}
+```
+
+> по желанию после if let можно добавить else
+
+
 
 ## Slice (срезы)
 
@@ -1263,6 +1667,8 @@ fn main() {
     assert_eq!(slice, &[2, 3]);
 }
 ```
+
+
 
 ![alt text](image-5.png)
 
