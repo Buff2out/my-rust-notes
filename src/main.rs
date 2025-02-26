@@ -1,13 +1,7 @@
 fn main() {
-    let names = vec!["Bob", "Frank", "Ferris"];
+    let a = [1, 2, 3, 4, 5];
 
-    for name in names.into_iter() {
-        match name {
-            "Ferris" => println!("There is a rustacean among us!"),
-            _ => println!("Hello {}", name),
-        }
-    }
-    
-    println!("names: {:?}", names);
-    // FIXME ^ Comment out this line
+    let slice = &a[1..3];
+
+    assert_eq!(slice, &[2, 3]);
 }

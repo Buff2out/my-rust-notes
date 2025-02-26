@@ -941,7 +941,134 @@ For more information about this error, try `rustc --explain E0382`.
 error: could not compile `ownership` (bin "ownership") due to 1 previous error
 ```
 
+> Другой пример тоже сработает. 
+> Здесь область памяти выделенная под "hello" освободится после того 
+> как на неё перестанет что-либо ссылаться. drop() вызовется сразу (immediately).
 
+```Rust
+fn main() { 
+    let mut s = String::from("hello");
+    s = String::from("ahoy");
+    println!("{s}, world!");
+}
+```
+
+![alt text](image-20.png)
+
+>Глубокое копирование.
+
+```Rust
+fn main() { 
+    let s1 = String::from("hello");
+    let s2 = s1.clone();
+    println!("s1 = {s1}, s2 = {s2}");
+}
+```
+
+>Здесь данные копируются на стеке. И не происходит ссылка. При изменении y не поменяется x.
+
+```Rust
+fn main() { 
+    let x = 5;
+    let y = x;
+
+    println!("x = {x}, y = {y}");
+}
+```
+
+Причина в том, что такие типы, как целые числа, имеющие известный размер во время компиляции, 
+хранятся полностью в стеке, поэтому копии фактических значений создаются быстро. 
+Это означает, что нет причин, по которым мы хотели бы предотвратить 
+x 
+недействительность после создания переменной y. 
+Другими словами, здесь нет разницы между глубоким и поверхностным копированием, 
+поэтому вызов cloneне будет делать ничего, отличного от обычного поверхностного копирования, 
+и мы можем его пропустить.
+
+## Ownership (владение)
+
+Пример того как передаётся право собственности и как это работает с простейшими литералами.
+
+```Rust
+fn main() {
+    let s = String::from("hello");  // s comes into scope
+
+    takes_ownership(s);             // s's value moves into the function...
+                                    // ... and so is no longer valid here
+
+    let x = 5;                      // x comes into scope
+
+    makes_copy(x);                  // because i32 implements the Copy trait,
+                                    // x does NOT move into the function,
+    println!("{}", x);              // so it's okay to use x afterward
+
+} // Here, x goes out of scope, then s. But because s's value was moved, nothing
+  // special happens.
+
+fn takes_ownership(some_string: String) { // some_string comes into scope
+    println!("{some_string}");
+} // Here, some_string goes out of scope and `drop` is called. The backing
+  // memory is freed.
+
+fn makes_copy(some_integer: i32) { // some_integer comes into scope
+    println!("{some_integer}");
+} // Here, some_integer goes out of scope. Nothing special happens.
+```
+
+>Пример передачи владения и взятия обратно
+
+```Rust
+fn main() {
+    let s1 = gives_ownership();         // gives_ownership moves its return
+                                        // value into s1
+
+    let s2 = String::from("hello");     // s2 comes into scope
+
+    let s3 = takes_and_gives_back(s2);  // s2 is moved into
+                                        // takes_and_gives_back, which also
+                                        // moves its return value into s3
+} // Here, s3 goes out of scope and is dropped. s2 was moved, so nothing
+  // happens. s1 goes out of scope and is dropped.
+
+fn gives_ownership() -> String {             // gives_ownership will move its
+                                             // return value into the function
+                                             // that calls it
+
+    let some_string = String::from("yours"); // some_string comes into scope
+
+    some_string                              // some_string is returned and
+                                             // moves out to the calling
+                                             // function
+}
+
+// This function takes a String and returns one
+fn takes_and_gives_back(a_string: String) -> String { // a_string comes into
+                                                      // scope
+
+    a_string  // a_string is returned and moves out to the calling function
+}
+```
+
+>Пример возвращений (и передачи владения обратно) кортежом
+
+```Rust
+fn main() {
+    let s1 = String::from("hello");
+
+    let (s2, len) = calculate_length(s1);
+
+    println!("The length of '{s2}' is {len}.");
+}
+
+fn calculate_length(s: String) -> (String, usize) {
+    let length = s.len(); // len() returns the length of a String
+
+    (s, length)
+}
+```
+
+
+>Пример с циклом когда данные удаляются. Демонстрация работы ownership.
 
 ```Rust
 fn main() {
@@ -959,7 +1086,130 @@ fn main() {
 }
 ```
 
-borrowing
+## Borrowing (заимствование)
+
+А теперь borrowing. Основная концепция взятия в аренду на примере картины "Моны Лизы", 
+Давайте лучше называть это заимствованием.  
+
+Только при мутабельном заимствовании  (&mut T) возникает ситуация, где владелец теряет доступ к ресурсу, как если бы картину действительно украли.
+
+    В Rust есть строгие правила заимствования:
+        Вы можете иметь либо несколько неизменяемых ссылок, либо одну мутабельную ссылку.
+         
+    В контексте аналогии: музей может позволить многим людям одновременно смотреть на картину (неизменяемые ссылки), но если кто-то хочет её изменить (мутабельное заимствование), все остальные должны подождать.
+     
+Представьте, что музей владеет картиной Моны Лизы: 
+
+    Неизменяемое заимствование (&T):  
+        Несколько людей могут одновременно смотреть на картину в музее.
+        Это безопасно, потому что никто не может её изменить.
+         
+
+    Мутабельное заимствование (&mut T):  
+        Один человек забирает картину для реставрации.
+        Пока он её держит, никто другой не может взаимодействовать с оригиналом (ни смотреть, ни реставрировать).
+         
+
+    Возвращение картины:  
+        Как только реставратор возвращает картину музею, владелец снова может ею распорядиться.
+         
+
+    Клонирование (clone):  
+        Если кто-то делает копию картины, это уже не оригинал. Теперь у нас есть два независимых объекта: оригинал в музее и копия у другого человека.
+
+Тобишь гарантии. Это предотвращает проблему Race Condition в многопоточности.
+
+Но давайте рассмотрим примеры в однопоточном режиме для понимания.
+
+
+```Rust
+fn main() {
+    let mona_lisa = String::from("Retired Mona Lisa"); // Музей владеет картиной
+
+    {
+        let borrowed1 = &mona_lisa; // Неизменяемое заимствование: несколько человек могут смотреть
+        let borrowed2 = &mona_lisa; // Неизменяемое заимствование: несколько человек могут смотреть
+        println!("Looking at: {}{}", borrowed1, borrowed2);
+    } // Заимствование завершено, владелец снова может использовать ресурс
+
+    {
+        let restorer = &mut mona_lisa; // Мутабельное заимствование: реставратор берёт картину
+        *restorer = String::from("Restored Mona Lisa"); // Реставрация
+    } // После реставрации реставратор автоматически перестаёт владеть картиной.
+
+    println!("Final version: {}", mona_lisa); // Владелец снова может использовать ресурс
+}
+```
+
+>(я специально оставил код с ошибкой, чтобы была возможность интерактивно показать работу с компиляцией)
+        
+
+
+Не скомпилируется
+
+```Rust
+fn main() {
+    let mut s = String::from("hello");
+
+    let r1 = &s; // no problem
+    let r2 = &s; // no problem
+    let r3 = &mut s; // BIG PROBLEM
+
+    println!("{}, {}, and {}", r1, r2, r3);
+}
+```
+
+```Shell
+$ cargo run
+   Compiling ownership v0.1.0 (file:///projects/ownership)
+error[E0502]: cannot borrow `s` as mutable because it is also borrowed as immutable
+ --> src/main.rs:6:14
+  |
+4 |     let r1 = &s; // no problem
+  |              -- immutable borrow occurs here
+5 |     let r2 = &s; // no problem
+6 |     let r3 = &mut s; // BIG PROBLEM
+  |              ^^^^^^ mutable borrow occurs here
+7 |
+8 |     println!("{}, {}, and {}", r1, r2, r3);
+  |                                -- immutable borrow later used here
+
+For more information about this error, try `rustc --explain E0502`.
+error: could not compile `ownership` (bin "ownership") due to 1 previous error
+```
+
+
+```Rust
+fn main() {
+    let mut s = String::from("hello");
+
+    let r1 = &s; // no problem
+    let r2 = &s; // no problem
+    println!("{r1} and {r2}");
+    // variables r1 and r2 will not be used after this point
+
+    let r3 = &mut s; // no problem
+    println!("{r3}");
+}
+```
+
+>Rust без висячих указателей
+
+Не скомпилируется
+
+```Rust
+fn main() {
+    let reference_to_nothing = dangle();
+}
+
+fn dangle() -> &String {
+    let s = String::from("hello");
+
+    &s
+}
+```
+
+>Пример когда данные сохраняются, работа ссылки. Работа borrowing
 
 ```Rust
 fn main() {
@@ -976,9 +1226,43 @@ fn main() {
 }
 ```
 
-TODO: прикрепить схемку как это работает.
-
 # Синтаксический сахар, match, null и использование Option/Result.
+
+## Slice (срезы)
+
+Так же как и в питоне, в Rust есть срезы. Долго не задержимся, просто покажу общий синтаксис.
+
+```Rust
+fn main() {
+    let s = String::from("hello world");
+
+    let hello = &s[0..5];
+    let world = &s[6..11];
+
+    let len = s.len();
+
+    // equal
+    let slice = &s[3..len];
+    let slice = &s[3..];
+
+    // also equal
+    let slice = &s[0..len];
+    let slice = &s[..];
+
+}
+```
+
+![alt text](image-21.png)
+
+```Rust
+fn main() {
+    let a = [1, 2, 3, 4, 5];
+
+    let slice = &a[1..3];
+
+    assert_eq!(slice, &[2, 3]);
+}
+```
 
 ![alt text](image-5.png)
 
@@ -1073,6 +1357,12 @@ fn main() {
 
 # Продукты на rust
 
+Godot Engine:  
+
+    Если вас интересует использование Rust для игровых проектов, обратите внимание на Godot Engine, который имеет официальную поддержку Rust через GDExtension API.
+    Это более простой и прямолинейный путь для разработки игр на Rust.
+     
+
 # Rust в DevOps
 
 # Type assertion
@@ -1112,6 +1402,8 @@ https://t.me/s21_rust -
 > Читаем Rust Book, делимся материалами и вакансиями, решаем leetcode, делаем пет-проекты, организовываем групповые проекты для портфолио, мотивируем и формируем сообщество Rustaceans в Школе 21!
 
 ## Полезные ссылки
+
+https://www.youtube.com/watch?v=5C_HPTJg5ek - Rust за 100 секунд с анимациями.
 
 https://doc.rust-lang.org/book/ - Rust book
 
