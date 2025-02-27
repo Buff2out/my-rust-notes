@@ -1678,7 +1678,7 @@ fn main() {
 ![alt text](image-5.png)
 
 # Cargo
-
+```
 my_project/
 ├── Cargo.toml
 ├── src/
@@ -1691,7 +1691,7 @@ my_project/
 │       └── shapes.rs
 └── tests/
     └── integration_test.rs
-
+```
     Cargo.toml — файл конфигурации пакета.
     src/main.rs — точка входа для исполняемого файла.
     src/lib.rs — определение библиотечного crate.
@@ -1718,13 +1718,13 @@ path = "src/bin/my_binary.rs"
 [lib]
 name = "my_library"
 ```
-
+```
 my_project/
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs
 │   └── math.rs
-
+```
 math.rs
 ```Rust
 pub fn add(a: i32, b: i32) -> i32 {
@@ -1741,7 +1741,7 @@ fn main() {
     println!("Result: {}", result);
 }
 ```
-
+```
 my_project/
 ├── Cargo.toml
 ├── src/
@@ -1749,7 +1749,7 @@ my_project/
 │   ├── math.rs
 │   └── geometry/
 │       └── shapes.rs
-
+```
 
 geometry/shapes.rs:
 ```Rust
