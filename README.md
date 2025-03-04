@@ -1887,6 +1887,8 @@ use std::io::{self, Write};
 *hash map* позволяет связать значение с определенным ключом. Это конкретная реализация более общей структуры данных, называемой картой.
 
 
+## vec
+
 Создание нового вектора:
 ```Rust
 let v: Vec<i32> = Vec::new();
@@ -1995,6 +1997,165 @@ https://doc.rust-lang.org/nomicon/vec/vec.html
 
     Чтобы изменить значение, на которое ссылается изменяемая ссылка, нам нужно использовать *оператор разыменования, чтобы получить значение в , iпрежде чем мы сможем использовать +=оператор. Мы поговорим больше об операторе разыменования в разделе «Отслеживание указателя на значение с помощью оператора разыменования» главы 15.
 
+## String
+
+>Many of the same operations available with Vec<T> are available with String as well because String is actually implemented as a wrapper around a vector of bytes with some extra guarantees, restrictions, and capabilities
+
+Короче стринги как мы, сишники, плюсовики понимаем, это массив символов, ничего нового. И соответственно для них рабоает то же самое, что и для vec в Rust.
+
+```Rust
+let mut s = String::from("somestr");
+let mut s = String::new(); // можно и так.
+let mut s = s.to_string();
+
+s.push_str(s);
+s.push_str("something like that");
+s.push('\''); // экранируем и добавляем один символ. В данном случае это '
+s.push('a'); // дефолт, экраны не нужны.
+
+// Конкатенация
+let s1 = String::from("Hello, ");
+let s2 = String::from("world!");
+let s3 = s1 + &s2; // note s1 has been moved here and can no longer be used
+//Вспоминаем ownership
+
+// Множественный конкат.
+let s1 = String::from("tic");
+let s2 = String::from("tac");
+let s3 = String::from("toe");
+
+let s = format!("{s1}-{s2}-{s3}");
+
+
+```
+
+Поэкспериментируем! Найдём недосказанность в книге!
+
+Попробовал, кстати, вот так сделать и вот что он мне пишет.
+
+![alt text](image-29.png)
+
+Так же не сработает и это
+
+![alt text](image-30.png)
+
+А теперь посмотрим на сигнатуру функции push_str()
+
+![alt text](image-31.png)
+
+Видим, что принимает ссылку, что достаточно очевидно
+
+Конкатенация работает через + оператор. Изи.
+
+Хотя... Не изи. Немного по другому. 
+Мы передаём исходную строку, прибавляем заимствованное, он затем возвращает строку, которую взял во владение. Прибавляемую оставляет (потому что ссылка). И возвращаем взятую во владение. Под капотом мне кажется это работает сложнее, ведь если нужно аллоцировать новую память, то придётся удалить строку и создать новую с конкатенированным результатом.
+
+![alt text](image-32.png)
+
+```Rust
+    let s1 = String::from("tic");
+    let s2 = String::from("tac");
+    let s3 = String::from("toe");
+
+    let s = format!("{s1}-{s2}-{s3}");
+```
+
+Дальше идёт важная "духота" про то как работают string поглубже, и о том,  
+что не так просто получить символ через оператор [], поэтому
+
+https://doc.rust-lang.org/book/ch08-02-strings.html#internal-representation
+
+Вот этот раздел. Там всё описано, в кратце это не распишешь. Плюс полезно если не знаете что да как.
+
+### Итерация по строкам
+
+Как оказывается, итерация не такая простая,   
+поэтому вот как рекомендуют итеририроваться
+
+```Rust
+for c in "Зд".chars() {
+    println!("{c}");
+}
+```
+
+```Rust
+for b in "Зд".bytes() {
+    println!("{b}");
+}
+```
+
+## HashMap
+
+Ассоциативные массивы, или как в питоне dictionary.
+
+```Rust
+    use std::collections::HashMap;
+
+    let mut scores = HashMap::new();
+
+    scores.insert(String::from("Blue"), 10);
+    scores.insert(String::from("Yellow"), 50);
+
+    let team_name = String::from("Blue");
+    // The get method returns an Option<&V>
+    let score = scores.get(&team_name).copied().unwrap_or(0);
+
+    // iterating
+    for (key, value) in &scores {
+        println!("{key}: {value}");
+    }
+
+    // check if exists and write of not
+    scores.entry(String::from("Yellow")).or_insert(50);
+    scores.entry(String::from("Blue")).or_insert(50);
+```
+
+И сразу несколько вопросов ставим заранее.  
+Как по значению найти ключ?  
+Как сохранить порядок (сортировать по last pushed (added/appended))  
+Можем ли мы находить по ключу с помощью регулярных выражений?  
+
+>Так а вот это уже интересно. Ещё одна особенность оптимизации Rust! 
+
+    We aren’t able to use the variables field_name and field_value after they’ve been moved into the hash map with the call to insert.
+
+
+
+```Rust
+    use std::collections::HashMap;
+
+    let field_name = String::from("Favorite color");
+    let field_value = String::from("Blue");
+
+    let mut map = HashMap::new();
+    map.insert(field_name, field_value);
+    // field_name and field_value are invalid at this point, try using them and
+    // see what compiler error you get!
+```
+
+>Вот так. Если мы хотим вставить туда значения, мы обязательно должны склонировать значения до того как положим в хэшмапу
+
+>Пример группировки используя хешмапу (крутой пример дали, распространённый такой):
+
+```Rust
+pub fn group_using_hashmap() {
+    use std::collections::HashMap;
+
+    let text = "hello world wonderful world";
+
+    let mut map = HashMap::new();
+    // The split_whitespace method returns an iterator over subslices, separated by whitespace, of the value in text
+    for word in text.split_whitespace() {
+        // The or_insert method returns a mutable reference (&mut V) to the value for the specified key
+        let count = map.entry(word).or_insert(0);
+        // Here, we store that mutable reference in the count variable, so in order to assign to that value, we must first dereference count using the asterisk (*)
+        *count += 1;
+        // The mutable reference goes out of scope at the end of the for loop, so all of these changes are safe and allowed by the borrowing rules.
+    }
+
+    println!("{map:?}");
+}
+```
 
 
 
@@ -2015,7 +2176,10 @@ https://doc.rust-lang.org/nomicon/vec/vec.html
 
 `cargo install --path "project_to_build" --locked`
 
-Затем добавление в path через командную строку.
+Добавление для использования через в рут.
+
+`sudo cp ~/.cargo/bin/<program> /usr/local/bin/`
+
 
 ![alt text](image-11.png)
 
