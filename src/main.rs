@@ -1,5 +1,6 @@
 mod math;
 mod collections;
+mod error;
 
 fn main() {
     // let area = math::calculate_area(5);

@@ -2157,8 +2157,243 @@ pub fn group_using_hashmap() {
 }
 ```
 
+# Error handling
+
+>Rust не имеет try catch (как и в Go) вместо этого ошибки обрабатываются через Result<T, E> а так же panic! макрос который останавливает выполнение когда программа сталкивается с невосстанавливаемой ошибкой. Кроме того рассмотрим когда следует сделать попытку восстановления после ошибки или лучше остановить выполнение
+
+## panic!()
+
+Паники логгируют об ошибке, очищают стек и завершают выполнение.
+
+Про то, как прерывать выполнение без очистки стека рассказано тут - https://doc.rust-lang.org/book/ch09-01-unrecoverable-errors-with-panic.html#unwinding-the-stack-or-aborting-in-response-to-a-panic
+
+>Пример
+
+```Rust
+fn main() {
+    // panic!("crash and burn"); // custom panic
+
+    let v = vec![1, 2, 3];
+    v[99];
+}
+```
+
+```Shell
+$ cargo run
+   Compiling panic v0.1.0 (file:///projects/panic)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running `target/debug/panic`
+thread 'main' panicked at src/main.rs:4:6:
+index out of bounds: the len is 3 but the index is 99
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+```
 
 
+Можем применить RUST_BACKTRACE=1 если хотим рассмотреть панику подробнее:
+
+`RUST_BACKTRACE=1 cargo run`
+
+>Выведет
+
+```Shell
+$ RUST_BACKTRACE=1 cargo run
+thread 'main' panicked at src/main.rs:4:6:
+index out of bounds: the len is 3 but the index is 99
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/std/src/panicking.rs:662:5
+   1: core::panicking::panic_fmt
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/core/src/panicking.rs:74:14
+   2: core::panicking::panic_bounds_check
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/core/src/panicking.rs:276:5
+   3: <usize as core::slice::index::SliceIndex<[T]>>::index
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/core/src/slice/index.rs:302:10
+   4: core::slice::index::<impl core::ops::index::Index<I> for [T]>::index
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/core/src/slice/index.rs:16:9
+   5: <alloc::vec::Vec<T,A> as core::ops::index::Index<I>>::index
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/alloc/src/vec/mod.rs:2920:9
+   6: panic::main
+             at ./src/main.rs:4:6
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/f6e511eec7342f59a25f7c0534f1dbea00d01b14/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+```
+
+## Result
+
+Вот как выглядит Result
+
+```Rust
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+```
+
+><T> represents the type of the value that will be returned in a success case within the Ok variant, and <E> represents the type of the error that will be returned in a failure case within the Err variant
+
+```Rust
+use std::fs::File;
+
+pub fn open_file() {
+    // let greeting_file_result = File::open("hello.txt");
+    
+    let greeting_file_result = File::open("hello.txt");
+
+    let greeting_file = match greeting_file_result {
+        Ok(file) => file,
+        Err(error) => panic!("Problem opening the file: {error:?}"), // вот тут сразу бы хотел оборвать, 
+        // можно же не паниковать а вернуть какой то код, который можно потом использовать для обработки
+    };
+}
+```
+
+![alt text](image-33.png)
+
+### unpwrap()
+
+```Rust
+use std::fs::File;
+
+fn main() {
+    let greeting_file = File::open("hello.txt").unwrap(); // разворачиваем enum(Result), уже показывал ранее
+}
+```
+
+### expect()
+
+```Rust
+use std::fs::File;
+
+fn main() {
+    let greeting_file = File::open("hello.txt")
+        .expect("hello.txt should be included in this project"); // модифицируем панику
+}
+```
+
+### Propagating Errors
+
+*Propagating это как переводится? Передача ошибок? Ладно, к делу
+
+```Rust
+use std::fs::File;
+use std::io::{self, Read};
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    let username_file_result = File::open("hello.txt");
+
+    let mut username_file = match username_file_result {
+        Ok(file) => file,
+        Err(e) => return Err(e),
+    };
+
+    let mut username = String::new();
+
+    match username_file.read_to_string(&mut username) {
+        Ok(_) => Ok(username),
+        Err(e) => Err(e),
+    }
+}
+
+```
+
+В Rust используется Err, а не Error, потому что Err — это вариант перечисления Result, а Error — это тип ошибки, который может быть передан внутри Err.
+
+    T — это String (успешное значение, которое возвращается, если файл удалось прочитать).
+
+    E — это io::Error (тип ошибки, который может возникнуть при работе с файлами).
+
+
+### ? оператор
+
+```Rust
+use std::fs::File;
+use std::io::{self, Read};
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    let mut username = String::new();
+
+    File::open("hello.txt")?.read_to_string(&mut username)?;
+
+    Ok(username)
+}
+```
+
+Ещё короче
+
+```Rust
+use std::fs;
+use std::io;
+
+fn read_username_from_file() -> Result<String, io::Error> {
+    fs::read_to_string("hello.txt")
+}
+```
+
+Ещё один примерчик
+
+```Rust
+fn divide(a: i32, b: i32) -> Result<i32, String> {
+    if b == 0 {
+        return Err("Division by zero".to_string());
+    }
+    Ok(a / b)
+}
+
+fn main() {
+    let result = divide(10, 2)?;
+    println!("Result: {}", result);
+}
+```
+
+Для option
+
+```Rust
+fn find_value(list: &[i32], target: i32) -> Option<i32> {
+    for &value in list {
+        if value == target {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn main() {
+    let list = [1, 2, 3];
+    let value = find_value(&list, 2)?;
+
+    println!("Found: {}", value);
+}
+```
+
+6. Как это работает под капотом:  
+
+Оператор ? — это синтаксический сахар для следующей конструкции: 
+Для Result:  
+
+```Rust
+match value {
+    Ok(v) => v,
+    Err(e) => return Err(e.into()),
+}
+```
+
+Для Option:
+
+```Rust
+match value {
+    Some(v) => v,
+    None => return None,
+}
+```
+
+3. Почему нельзя смешивать Result и Option?
+
+Оператор ? не может автоматически преобразовать Result в Option или наоборот. Если вам нужно такое преобразование, используйте методы:
+
+    .ok() для преобразования Result в Option.
+
+    .ok_or() для преобразования Option в Result.
 
 
 
