@@ -2396,6 +2396,392 @@ match value {
     .ok_or() для преобразования Option в Result.
 
 
+# Generics Traits Lifetime
+
+## generics
+
+Соглашение об именовании типов в Rust - UpperCamelCase
+
+```Rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Point<T> {
+    fn x(&self) -> &T {
+        &self.x
+    }
+    fn distance_from_origin(&self) -> f32 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+}
+
+fn main() {
+    let p = Point { x: 5, y: 10 };
+    println!("p.x = {}", p.x());
+}
+```
+
+Очевидное не скомпилится и в других языках, но вот для закрепления:
+
+```Rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+fn main() {
+    let wont_work = Point { x: 5, y: 4.0 };
+}
+```
+
+```Shell
+$ cargo run
+   Compiling chapter10 v0.1.0 (file:///projects/chapter10)
+error[E0308]: mismatched types
+ --> src/main.rs:7:38
+  |
+7 |     let wont_work = Point { x: 5, y: 4.0 };
+  |                                      ^^^ expected integer, found floating-point number
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `chapter10` (bin "chapter10") due to 1 previous error
+```
+
+Если нужно два типа в структуре можно сделать и так:
+
+```Rust
+struct Point<T, U> {
+    x: T,
+    y: U,
+}
+
+fn main() {
+    let both_integer = Point { x: 5, y: 10 };
+    let both_float = Point { x: 1.0, y: 4.0 };
+    let integer_and_float = Point { x: 5, y: 4.0 };
+}
+```
+
+
+>Рассмотрим более сложный пример где мы возвращаем новую экземпляр структуры но с смешанными полями:
+
+```Rust
+struct Point<X1, Y1> {
+    x: X1,
+    y: Y1,
+}
+
+impl<X1, Y1> Point<X1, Y1> {
+    fn mixup<X2, Y2>(self, other: Point<X2, Y2>) -> Point<X1, Y2> {
+        Point {
+            x: self.x,
+            y: other.y,
+        }
+    }
+}
+
+fn main() {
+    let p1 = Point { x: 5, y: 10.4 };
+    let p2 = Point { x: "Hello", y: 'c' };
+
+    let p3 = p1.mixup(p2);
+
+    println!("p3.x = {}, p3.y = {}", p3.x, p3.y);
+}
+```
+
+### performance issue
+
+Нет, не замедляется скорость выполнения, поскольку Rust использует мономорфизацию.
+
+https://doc.rust-lang.org/book/ch10-01-syntax.html#performance-of-code-using-generics
+
+https://habr.com/ru/companies/vk/articles/461321/
+
+
+## traits
+
+Таак, черты похожи на интерфейсы но есть отличия.
+
+A type’s behavior consists of the methods we can call on that type. Different types share the same behavior if we can call the same methods on all of those types.
+
+### Реализация трейта для типа  
+Трейт `Summary` определяет метод `summarize()`. Реализуем его для структур `NewsArticle` и `Tweet`:
+
+#### Код (src/lib.rs):
+```rust
+// NewsArticle
+pub struct NewsArticle {
+    pub headline: String,
+    pub location: String,
+    pub author: String,
+    pub content: String,
+}
+
+impl Summary for NewsArticle {
+    fn summarize(&self) -> String {
+        format!("{}, by {} ({})", self.headline, self.author, self.location)
+    }
+}
+
+// Tweet
+pub struct Tweet {
+    pub username: String,
+    pub content: String,
+    pub reply: bool,
+    pub retweet: bool,
+}
+
+impl Summary for Tweet {
+    fn summarize(&self) -> String {
+        format!("{}: {}", self.username, self.content)
+    }
+}
+```
+
+---
+
+### Ключевые моменты:  
+1. **Синтаксис реализации**:  
+   ```rust
+   impl ИмяТрейта for Тип { ... }
+   ```  
+   Например: `impl Summary for NewsArticle`.
+
+2. **Использование трейта**:  
+   Чтобы вызывать методы трейта, его нужно добавить в область видимости:
+   ```rust
+   use aggregator::{Summary, Tweet};
+
+   fn main() {
+       let tweet = Tweet { /* ... */ };
+       println!("{}", tweet.summarize()); // "horse_ebooks: ..."
+   }
+   ```
+
+---
+
+### Орфанные правила (Orphan Rule)  
+Можно реализовать трейт для типа **только если**:  
+- Трейт **или** тип локальны для вашего крейта.  
+
+#### Примеры:  
+- ✅ Разрешено:  
+  ```rust
+    // Ваш крейт определяет трейт Summary и тип Tweet
+  impl Summary for Tweet { ... } 
+    // Ваш крейт определяет тип Tweet, Display — внешний трейт
+  impl Display for Tweet { ... } 
+    // Ваш крейт определяет трейт Summary и тип Vec<T>
+  impl Summary for Vec<T> { ... } 
+  ```
+
+- ❌ Запрещено:  
+  ```rust
+  // Vec<T> и Display — внешние типы/трейты
+  impl Display for Vec<T> { ... } 
+  ```  
+
+**Причина**: предотвращение конфликтов реализаций между крейтами.
+
+---
+
+### Использование трейтов как параметров функций  
+Трейты позволяют определять функции, которые работают с разными типами, реализующими указанный трейт.
+
+---
+
+#### 1. **Базовый синтаксис `impl Trait`**  
+Функция принимает любой тип, реализующий трейт `Summary`:  
+```rust
+pub fn notify(item: &impl Summary) {
+    println!("Новость: {}", item.summarize());
+}
+```
+- **Особенности**:  
+  - `item` может быть `NewsArticle`, `Tweet` и т.д.  
+  - Нельзя использовать разные типы для нескольких параметров (если не указано иначе).  
+
+---
+
+#### 2. **Явные ограничения трейтов (Trait Bounds)**  
+Эквивалентная запись с использованием дженериков:  
+```rust
+pub fn notify<T: Summary>(item: &T) {
+    println!("Новость: {}", item.summarize());
+}
+```
+- **Когда использовать**:  
+  - Если нужно явно указать тип или использовать его в нескольких местах.  
+  - Для ограничения нескольких параметров одним типом:  
+    ```rust
+    // item1 и item2 должны быть одного типа (например, оба Tweet)
+    pub fn notify<T: Summary>(item1: &T, item2: &T) {}
+    ```
+
+---
+
+#### 3. **Комбинирование трейтов (`+`)**  
+Требуем реализацию нескольких трейтов:  
+```rust
+// Через impl Trait:
+pub fn notify(item: &(impl Summary + Display)) {}
+
+// Через trait bounds:
+pub fn notify<T: Summary + Display>(item: &T) {}
+```
+- **Пример использования**:  
+  ```rust
+  // item можно и форматировать через {}, и вызывать summarize()
+  println!("{}: {}", item, item.summarize());
+  ```
+
+---
+
+#### 4. **Упрощение сложных сигнатур с `where`**  
+Для улучшения читаемости при множестве ограничений:  
+```rust
+// Без where:
+fn some_function<T: Display + Clone, U: Clone + Debug>(t: &T, u: &U) -> i32 {}
+
+// С where:
+fn some_function<T, U>(t: &T, u: &U) -> i32
+where
+    T: Display + Clone,
+    U: Clone + Debug,
+{}
+```
+- **Преимущества**:  
+  - Сигнатура функции не загромождается.  
+  - Удобно для сложных сценариев (например, 3+ дженерика).  
+
+---
+
+### Возврат типов, реализующих трейты  
+Используйте `impl Trait` в возвращаемой позиции, чтобы указать, что функция возвращает значение, реализующее определённый трейт, без указания конкретного типа.
+
+---
+
+#### 1. **Базовый пример**  
+Функция возвращает `Tweet`, но тип указан как `impl Summary`:  
+```rust
+fn returns_summarizable() -> impl Summary {
+    Tweet {
+        username: String::from("horse_ebooks"),
+        content: String::from("of course..."),
+        reply: false,
+        retweet: false,
+    }
+}
+```  
+- **Вызывающий код** знает только, что возвращаемый тип реализует `Summary`.  
+- **Преимущество**: Сокрытие деталей реализации (например, для сложных типов вроде замыканий или итераторов).
+
+---
+
+#### 2. **Где это полезно?**  
+- **Замыкания и итераторы**: Их типы часто анонимны или очень длинные.  
+  Пример:  
+  ```rust
+  fn create_iterator() -> impl Iterator<Item = i32> {
+      (1..10).map(|x| x * 2)
+  }
+  ```  
+- **Упрощение кода**: Избегаем сложных аннотаций типов.
+
+---
+
+#### 3. **Ограничение**  
+Функция **не может** возвращать разные типы, даже если они реализуют один трейт:  
+```rust
+// Ошибка компиляции!
+fn returns_summarizable(switch: bool) -> impl Summary {
+    if switch {
+        NewsArticle { /* ... */ }  // Один тип
+    } else {
+        Tweet { /* ... */ }        // Другой тип
+    }
+}
+```  
+- **Причина**: `impl Trait` требует **единственный** конкретный тип на этапе компиляции.  
+- **Решение**: Использовать трейт-объекты (`dyn Trait`), как описано в главе 17.
+
+---
+
+И снова я восхищаюсь Rust'ом.
+
+### Условная реализация методов через ограничения трейтов  
+Трейт-баунды позволяют добавлять методы к типам только при выполнении условий (например, если тип реализует нужные трейты).
+
+---
+
+#### 1. **Пример: структура `Pair<T>`**  
+```rust
+use std::fmt::Display;
+
+struct Pair<T> {
+    x: T,
+    y: T,
+}
+
+// Всегда реализуется для любого T
+impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+// Реализуется только для T, поддерживающих сравнение (PartialOrd) и вывод (Display)
+impl<T: Display + PartialOrd> Pair<T> {
+    fn cmp_display(&self) {
+        if self.x >= self.y {
+            println!("Наибольший элемент: x = {}", self.x);
+        } else {
+            println!("Наибольший элемент: y = {}", self.y);
+        }
+    }
+}
+```
+- **`new()`** доступен для любого `T`.  
+- **`cmp_display()`** доступен только если `T: Display + PartialOrd`.  
+
+---
+
+#### 2. **Blanket-реализации**  
+Это реализация трейта для **всех типов**, удовлетворяющих условиям. Пример из стандартной библиотеки:  
+```rust
+// Для любого типа T с трейтом Display автоматически реализуется ToString
+impl<T: Display> ToString for T {
+    fn to_string(&self) -> String {
+        // ...
+    }
+}
+
+// Использование
+let s = 5.to_string(); // Работает, т.к. i32 реализует Display
+```  
+- **Польза**: Не нужно вручную реализовывать `ToString` для каждого типа с `Display`.  
+
+---
+
+#### 3. **Преимущества проверки на этапе компиляции**  
+- **Ошибки обнаруживаются при компиляции**, а не в рантайме.  
+- **Нет накладных расходов** на проверки в рантайме.  
+- Пример ошибки:  
+  ```rust
+  let pair = Pair { x: vec![1], y: vec![2] };
+  pair.cmp_display(); // Ошибка: Vec<i32> не реализует Display
+  ```  
+
+---
+
+## lifetime
+
+
+
+
 
 ### Экосистема crates.io
 
