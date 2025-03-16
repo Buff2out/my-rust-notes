@@ -2781,6 +2781,394 @@ let s = 5.to_string(); // Работает, т.к. i32 реализует Displa
 
 
 
+# tests Написание тестов
+
+```Rust
+$ cargo new adder --lib
+     Created library `adder` project
+$ cd adder
+```
+
+```Rust
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+    }
+}
+```
+
+```Rust
+$ cargo test
+   Compiling adder v0.1.0 (file:///projects/adder)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running unittests src/lib.rs (file:///projects/adder/target/debug/deps/adder-7acb243c25ffd9dc)
+
+running 1 test
+test tests::it_works ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adder
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+>Как выглядит зафейленный тест
+
+```Rust
+$ cargo test
+   Compiling adder v0.1.0 (file:///projects/adder)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running unittests src/lib.rs (target/debug/deps/adder-92948b65e88960b4)
+
+running 2 tests
+test tests::another ... FAILED
+test tests::exploration ... ok
+
+failures:
+
+---- tests::another stdout ----
+thread 'tests::another' panicked at src/lib.rs:17:9:
+Make this test fail
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::another
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+
+```
+
+>В структурах
+
+```Rust
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width > other.width && self.height > other.height
+    }
+}
+```
+
+>testим
+
+```Rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn larger_can_hold_smaller() {
+        let larger = Rectangle {
+            width: 8,
+            height: 7,
+        };
+        let smaller = Rectangle {
+            width: 5,
+            height: 1,
+        };
+
+        assert!(larger.can_hold(&smaller));
+    }
+}
+```
+
+## Testing Equality with the assert_eq! and assert_ne! Macros
+
+```Rust
+pub fn add_two(a: usize) -> usize {
+    a + 2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_adds_two() {
+        let result = add_two(2);
+        assert_eq!(result, 4);
+    }
+}
+```
+
+Note that in some languages and test frameworks, the parameters to equality assertion functions are called expected and actual, and the order in which we specify the arguments matters. However, in Rust, they’re called left and right, and the order in which we specify the value we expect and the value the code produces doesn’t matter. We could write the assertion in this test as assert_eq!(4, result), which would produce the same failure message that displays assertion failed: `(left == right)`.
+
+The assert_ne! macro will pass if the two values we give it are not equal and fail if they’re equal. This macro is most useful for cases when we’re not sure what a value will be, but we know what the value definitely shouldn’t be. For example, if we’re testing a function that is guaranteed to change its input in some way, but the way in which the input is changed depends on the day of the week that we run our tests, the best thing to assert might be that the output of the function is not equal to the input.
+
+## Adding Custom Failure Messages
+
+```Rust
+pub fn greeting(name: &str) -> String {
+    format!("Hello {name}!")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn greeting_contains_name() {
+        let result = greeting("Carol");
+        assert!(
+            result.contains("Carol"),
+            "Greeting did not contain name, value was `{result}`"
+        );
+    }
+}
+```
+
+## Checking for Panics with should_panic
+
+```Rust
+pub struct Guess {
+    value: i32,
+}
+
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 || value > 100 {
+            panic!("Guess value must be between 1 and 100, got {value}.");
+        }
+
+        Guess { value }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn greater_than_100() {
+        Guess::new(200);
+    }
+}
+```
+
+```Rust
+$ cargo test
+   Compiling guessing_game v0.1.0 (file:///projects/guessing_game)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests src/lib.rs (target/debug/deps/guessing_game-57d70c3acb738f4d)
+
+running 1 test
+test tests::greater_than_100 - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests guessing_game
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+```
+
+## Using Result<T, E> in Tests
+
+```Rust
+    #[test]
+    fn it_works() -> Result<(), String> {
+        let result = add(2, 2);
+
+        if result == 4 {
+            Ok(())
+        } else {
+            Err(String::from("two plus two does not equal four"))
+        }
+    }
+
+```
+
+## Управление выполнением тестов в Rust  
+
+#### 1. **Запуск тестов: параллельно или последовательно**  
+По умолчанию `cargo test` запускает тесты **параллельно** в нескольких потоках, что ускоряет выполнение. Однако это может вызвать проблемы, если тесты используют общие ресурсы (например, файлы или переменные среды).  
+
+- **Пример проблемы**:  
+  Если два теста записывают данные в один файл `test-output.txt`, они могут конфликтовать.  
+
+- **Решение**:  
+  Запуск тестов в **одном потоке** для изоляции:  
+  ```bash  
+  cargo test -- --test-threads=1  
+  ```  
+
+---
+
+#### 2. **Отображение вывода функций**  
+По умолчанию Rust **скрывает вывод** (например, `println!`) для успешных тестов, показывая его только для упавших.  
+
+- **Пример**:  
+  ```rust  
+  fn prints_and_returns_10(a: i32) -> i32 {  
+      println!("I got the value {a}");  
+      10  
+  }  
+
+  #[test]  
+  fn passing_test() {  
+      assert_eq!(prints_and_returns_10(4), 10);  
+  }  
+
+  #[test]  
+  fn failing_test() {  
+      assert_eq!(prints_and_returns_10(8), 5);  // Тест упадёт  
+  }  
+  ```  
+
+  - Вывод для `cargo test`:  
+    ```  
+    test failing_test ... FAILED  
+    test passing_test ... ok  
+    ```  
+    Сообщение `I got the value 4` не отображается (тест прошёл).  
+
+- **Показать вывод для всех тестов**:  
+  ```bash  
+  cargo test -- --show-output  
+  ```  
+
+---
+
+#### 3. **Запуск подмножества тестов**  
+Можно запускать тесты по **имени**, **части имени** или **модулю**.  
+
+- **Запуск одного теста**:  
+  ```bash  
+  cargo test one_hundred  # Запустит тест с именем `one_hundred`  
+  ```  
+
+- **Запуск тестов по фильтру**:  
+  ```bash  
+  cargo test add  # Запустит все тесты, в имени которых есть `add`  
+  ```  
+
+---
+
+#### 4. **Игнорирование тестов**  
+Если тест требует много времени или ресурсов, его можно пометить атрибутом `#[ignore]`.  
+
+- **Пример**:  
+  ```rust  
+  #[test]  
+  #[ignore]  
+  fn expensive_test() {  
+      // Долгие вычисления...  
+  }  
+  ```  
+
+- **Запуск только игнорируемых тестов**:  
+  ```bash  
+  cargo test -- --ignored  
+  ```  
+
+- **Запуск всех тестов (включая игнорируемые)**:  
+  ```bash  
+  cargo test -- --include-ignored  
+  ```  
+
+---
+
+### Основные команды  
+| Команда                          | Описание                                  |  
+|----------------------------------|------------------------------------------|  
+| `cargo test`                     | Запуск всех тестов.                      |  
+| `cargo test -- --test-threads=1` | Запуск тестов в одном потоке.            |  
+| `cargo test -- --show-output`    | Показать вывод для успешных тестов.      |  
+| `cargo test [часть_имени]`       | Запуск тестов, чьи имена содержат текст. |  
+| `cargo test -- --ignored`        | Запуск только игнорируемых тестов.       |  
+
+---
+
+### Итог  
+- **Параллелизм**: Ускоряет тесты, но требует осторожности с общими ресурсами.  
+- **Фильтрация**: Позволяет гибко выбирать тесты для запуска.  
+- **Игнорирование**: Удобно для временного отключения долгих тестов.  
+- **Вывод**: По умолчанию скрыт для успешных тестов — используйте `--show-output`, чтобы его увидеть.  
+
+Эти инструменты помогают эффективно работать с тестами, адаптируя их выполнение под ваши задачи. 🦀
+
+# unit and integration tests
+
+    Эта штука будет гарантировать что тесты не запустятся при `cargo build`
+
+```Rust
+pub fn add_two(a: usize) -> usize {
+    internal_adder(a, 2)
+}
+
+fn internal_adder(left: usize, right: usize) -> usize {
+    left + right
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn internal() {
+        let result = internal_adder(2, 2);
+        assert_eq!(result, 4);
+    }
+}
+```
+
+> test private functions is allowed in rust
+
+## integration tests
+
+```
+adder
+├── Cargo.lock
+├── Cargo.toml
+├── src
+│   └── lib.rs
+└── tests
+    └── integration_test.rs
+```
+
+```Rust
+use adder::add_two;
+
+#[test]
+fn it_adds_two() {
+    let result = add_two(2);
+    assert_eq!(result, 4);
+}
+```
+
+Три раздела вывода включают модульные тесты, интеграционный тест и тесты документации. Обратите внимание, что если какой-либо тест в разделе не пройден, следующие разделы не будут запущены. Например, если модульный тест не пройден, то не будет никаких выходных данных для интеграционных и документационных тестов, поскольку эти тесты будут запущены только в том случае, если все модульные тесты пройдены.
+
+```Rust
+
+```
+
+```Rust
+
+```
 
 
 ### Экосистема crates.io
