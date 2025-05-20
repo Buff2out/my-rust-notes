@@ -21,6 +21,7 @@ cat ~/.ssh/id_ed25519.pub # проверить актуальность pub кл
 # на удалённом хосте и на локальном
 
 git remote set-url origin git@github.com:whoami/projectname.git
+# Аналогичную команду используем если переименовали репозиторий
 ```
 
 # Почему я выбрал Rust
