@@ -12,6 +12,16 @@
 - [match null и использование Option Result](#match-null-и-использование-Option-Result)
 - [Unsafe rust.](#Unsafe-rust)
 
+# git, ssh и проекты.
+
+Если склонировал репозиторий по http или отправил по http. А в консоли внезапно понадобилось менеджить проект по ssh, а мне это понадобилось, то вот кратенькая инструкция что нужно делать:
+
+```bash
+cat ~/.ssh/id_ed25519.pub # проверить актуальность pub ключа 
+# на удалённом хосте и на локальном
+
+git remote set-url origin git@github.com:whoami/projectname.git
+```
 
 # Почему я выбрал Rust
 
@@ -2779,6 +2789,77 @@ let s = 5.to_string(); // Работает, т.к. i32 реализует Displa
 
 ## lifetime
 
+```Rust
+fn main() {
+    let r;                // ---------+-- 'a
+                          //          |
+    {                     //          |
+        let x = 5;        // -+-- 'b  |
+        r = &x;           //  |       |
+    }                     // -+       |
+                          //          |
+    println!("r: {r}");   //          |
+}                         // ---------+
+```
+
+>Примечание: Примеры в листинге 10-16, 10-17 и 10-23 объявляют переменные без присвоения им начального значения, поэтому имя переменной существует во внешней области видимости. На первый взгляд может показаться, что это противоречит отсутствию в Rust нулевых значений. Однако, если мы попытаемся использовать переменную до присвоения ей значения, мы получим ошибку времени компиляции, которая показывает, что Rust действительно не допускает нулевых значений.
+
+```
+$ cargo run
+   Compiling chapter10 v0.1.0 (file:///projects/chapter10)
+error[E0597]: `x` does not live long enough
+ --> src/main.rs:6:13
+  |
+5 |         let x = 5;
+  |             - binding `x` declared here
+6 |         r = &x;
+  |             ^^ borrowed value does not live long enough
+7 |     }
+  |     - `x` dropped here while still borrowed
+8 |
+9 |     println!("r: {r}");
+  |                  --- borrow later used here
+
+For more information about this error, try `rustc --explain E0597`.
+error: could not compile `chapter10` (bin "chapter10") due to 1 previous error
+```
+
+>Во время компиляции Rust сравнивает размер двух времен жизни и видит, что rимеет время жизни , 'aно ссылается на память со временем жизни 'b. Программа отклоняется, потому что временя жизни 'b заканчивается раньше, чем 'a: субъект ссылки не живет так долго, как ссылка.
+
+Ещё рассмотрим пример как компилятор проверяет ссылки:
+
+```Rust
+fn longest(x: &str, y: &str) -> &str {
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+```
+
+>Текст справки показывает, что возвращаемому типу необходим общий параметр времени жизни, поскольку Rust не может определить, ссылается ли возвращаемая ссылка на x или y. 
+
+```
+$ cargo run
+   Compiling chapter10 v0.1.0 (file:///projects/chapter10)
+error[E0106]: missing lifetime specifier
+ --> src/main.rs:9:33
+  |
+9 | fn longest(x: &str, y: &str) -> &str {
+  |               ----     ----     ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `x` or `y`
+help: consider introducing a named lifetime parameter
+  |
+9 | fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+  |           ++++     ++          ++          ++
+
+For more information about this error, try `rustc --explain E0106`.
+error: could not compile `chapter10` (bin "chapter10") due to 1 previous error
+```
+
+# CLI
 
 
 # tests Написание тестов
@@ -3169,6 +3250,37 @@ fn it_adds_two() {
 ```Rust
 
 ```
+
+```rust
+use std::env;
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    dbg!(args);
+}
+```
+
+```
+The args Function and Invalid Unicode
+
+Note that std::env::args will panic if any argument contains invalid Unicode. If your program needs to accept arguments containing invalid Unicode, use std::env::args_os instead. That function returns an iterator that produces OsString values instead of String values. We’ve chosen to use std::env::args here for simplicity because OsString values differ per platform and are more complex to work with than String values.
+
+/src/me/rust/minigrep> cargo run -- dgdf!@&dsjf
+   Compiling minigrep v0.1.0 (/home/wave/src/me/rust/minigrep)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+     Running `target/debug/minigrep 'dgdf'\!'@&dsjf'`
+
+thread 'main' panicked at src/main.rs:6:26:
+index out of bounds: the len is 2 but the index is 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+```
+
+Кстати, можем заметить, аннотировать тип обязательно.
+
+*Принцип TDD
+
+https://ru.wikipedia.org/wiki/Разработка_через_тестирование
 
 
 ### Экосистема crates.io
