@@ -10,6 +10,12 @@
 - [Structs](#Structs)
 - [enums](#enums)
 - [match null и использование Option Result](#match-null-и-использование-Option-Result)
+- [Packages and Crates](#Packages-and-Crates)
+- [Error handling](#Error-handling)
+- [Collections](#Collections)
+- [Generics Traits Lifetime](#Generics-Traits-Lifetime)
+- [tests](#tests)
+- [flag processing](#flag-processing)
 - [Unsafe rust.](#Unsafe-rust)
 
 # git, ssh и проекты.
@@ -1688,9 +1694,7 @@ fn main() {
 
 ![alt text](image-5.png)
 
-# Cargo
-
-## Packages and Crates
+# Packages and Crates
 
 >Ящик (crate) 
 
@@ -1887,7 +1891,7 @@ use std::io::{self, Write};
 ```
 
 
-# Collections (коллекции)
+# Collections
 
 *vector* позволяет хранить переменное количество значений рядом друг с другом.
 
@@ -2860,10 +2864,8 @@ For more information about this error, try `rustc --explain E0106`.
 error: could not compile `chapter10` (bin "chapter10") due to 1 previous error
 ```
 
-# CLI
 
-
-# tests Написание тестов
+# tests
 
 ```Rust
 $ cargo new adder --lib
@@ -3193,7 +3195,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 Эти инструменты помогают эффективно работать с тестами, адаптируя их выполнение под ваши задачи. 🦀
 
-# unit and integration tests
+## unit and integration tests
 
     Эта штука будет гарантировать что тесты не запустятся при `cargo build`
 
@@ -3220,7 +3222,7 @@ mod tests {
 
 > test private functions is allowed in rust
 
-## integration tests
+### integration tests
 
 ```
 adder
@@ -3283,7 +3285,9 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 https://ru.wikipedia.org/wiki/Разработка_через_тестирование
 
-# ENVs
+# CLI
+
+## ENVs
 
 Примерно так:
 
@@ -3295,6 +3299,184 @@ let ignore_case = env::var("IGNORE_CASE").is_ok();
 
 eprintln!("Problem parsing arguments: {err}");
 ```
+
+## flag processing
+
+Отличный вопрос! В Rust есть несколько способов **парсить флаги командной строки**, от простых до мощных и гибких. Я покажу тебе разные подходы — от базового ручного парсинга до использования популярных библиотек.
+
+---
+
+### 🧠 Цель: получить аргументы из CLI
+
+Пример команды:
+
+```bash
+myapp --name John --verbose -l en --age 30
+```
+
+Мы хотим:
+- Получить значения по ключам (`--name`, `--age`).
+- Проверить, установлен ли флаг (`--verbose`).
+- Обработать короткие опции (`-l`).
+
+---
+
+#### ✅ Способ 1: Ручной парсинг через `std::env::args()`
+
+Если нужно быстро и просто:
+
+```rust
+use std::env;
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    for i in 0..args.len() {
+        match args[i].as_str() {
+            "--name" => {
+                if i + 1 < args.len() {
+                    println!("Имя: {}", args[i + 1]);
+                }
+            }
+            "--age" => {
+                if i + 1 < args.len() {
+                    if let Ok(age) = args[i + 1].parse::<u8>() {
+                        println!("Возраст: {}", age);
+                    }
+                }
+            }
+            "--verbose" => {
+                println!("Вербозный вывод включен");
+            }
+            _ => {}
+        }
+    }
+}
+```
+
+###### 👍 Плюсы:
+- Нет зависимостей.
+- Просто понять.
+
+###### 👎 Минусы:
+- Много boilerplate.
+- Неудобно для сложных приложений.
+
+---
+
+#### ✅ Способ 2: Использовать крейт `clap`
+
+**`clap`** — это **самый популярный** и мощный крейт для парсинга аргументов в Rust.
+
+###### 🔧 Установка (в `Cargo.toml`):
+
+```toml
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+```
+
+##### 📦 Пример с derive-макросом:
+
+```rust
+use clap::{Parser};
+
+#[derive(Parser)]
+#[command(author, version, about = "CLI-приложение для демонстрации clap")]
+struct Cli {
+    /// Имя пользователя
+    #[arg(short, long)]
+    name: String,
+
+    /// Возраст
+    #[arg(short, long)]
+    age: Option<u8>,
+
+    /// Включить подробный вывод
+    #[arg(short, long)]
+    verbose: bool,
+
+    /// Язык
+    #[arg(short = 'l', long)]
+    language: Option<String>,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    println!("Имя: {}", cli.name);
+
+    if let Some(age) = cli.age {
+        println!("Возраст: {}", age);
+    }
+
+    if cli.verbose {
+        println!("Подробный режим включен");
+    }
+
+    if let Some(lang) = cli.language {
+        println!("Язык: {}", lang);
+    }
+}
+```
+
+##### Пример запуска:
+
+```bash
+cargo run -- --name Alice --age 25 -l ru --verbose
+```
+
+##### 👍 Плюсы:
+- Автоматически создаёт help / version.
+- Поддерживает короткие и длинные флаги.
+- Типобезопасный.
+- Отличная документация.
+
+##### 👎 Минусы:
+- Больше зависимостей.
+- Нужно немного больше кода.
+
+---
+
+#### ✅ Способ 3: Использовать `anyhow` + `clap` для обработки ошибок
+
+Если хочешь красиво обрабатывать ошибки:
+
+```toml
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+anyhow = "1.0"
+```
+
+```rust
+use anyhow::{Context, Result};
+use clap::Parser;
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(short, long)]
+    name: String,
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    anyhow::ensure!(!cli.name.is_empty(), "Имя не может быть пустым");
+
+    println!("Привет, {}", cli.name);
+    Ok(())
+}
+```
+
+## 📌 Когда что использовать?
+
+| Задача | Что выбрать |
+|-------|-------------|
+| Серьёзное приложение с флагами | `clap` с `derive` |
+| Нужен красивый вывод ошибок | `clap` + `anyhow` |
+
+
+# итераторы замыкания
+
+
 
 ### Экосистема crates.io
 
