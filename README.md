@@ -3283,6 +3283,18 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 https://ru.wikipedia.org/wiki/Разработка_через_тестирование
 
+# ENVs
+
+Примерно так:
+
+```rust
+let ignore_case = env::var("IGNORE_CASE").is_ok();
+```
+
+```rust
+
+eprintln!("Problem parsing arguments: {err}");
+```
 
 ### Экосистема crates.io
 
