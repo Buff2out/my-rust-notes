@@ -3954,6 +3954,15 @@ Box<T> нужен когда компилятору неизвестно как 
 
 smart pointers - это сущности, которые реализуют Drop и Deref трейты
 
+```rust
+fn main() {
+    let x = 5;
+    let y = Box::new(x);
+
+    assert_eq!(5, x);
+    assert_eq!(5, *y);
+}
+```
 
 ### Экосистема crates.io
 
