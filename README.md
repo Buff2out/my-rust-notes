@@ -1515,6 +1515,9 @@ https://doc.rust-lang.org/std/option/enum.Option.html
 
 # match null и использование Option Result
 
+Включены в прелюдию.  
+https://doc.rust-lang.org/std/prelude/index.html
+
 >Spoiler к предыдущему:
 
 ```Rust
@@ -4087,7 +4090,7 @@ From &mut T to &U when T: Deref<Target=U>
 
 ---
 
-### 🧠 Напоминание: что такое `Deref`?
+#### 🧠 Напоминание: что такое `Deref`?
 
 Когда тип `T` реализует `Deref<Target = U>`, Rust может **автоматически преобразовывать**:
 - `&T` → `&U`
@@ -4298,6 +4301,12 @@ fn main() {
 | `&T → &U` при `T: Deref<Target=U>` | `&Box<String>` → `&str` |
 | `&mut T → &mut U` при `T: DerefMut<Target=U>` | `&mut MyBox<String>` → `&mut String` |
 | `&mut T → &U` при `T: Deref<Target=U>` | `&mut Box<String>` → `&str` |
+
+
+### Rc<T>
+
+Не включён в прелюдию. Поэтому нужно импортировать самостоятельно:  
+https://doc.rust-lang.org/std/prelude/index.html
 
 
 ### Экосистема crates.io
