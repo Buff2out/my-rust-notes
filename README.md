@@ -4323,6 +4323,417 @@ fn main() {
 }
 ```
 
+### RefCell<T>
+
+
+```Rust
+pub trait Messenger {
+    fn send(&self, msg: &str);
+}
+
+pub struct LimitTracker<'a, T: Messenger> {
+    messenger: &'a T,
+    value: usize,
+    max: usize,
+}
+
+impl<'a, T> LimitTracker<'a, T>
+where
+    T: Messenger,
+{
+    pub fn new(messenger: &'a T, max: usize) -> LimitTracker<'a, T> {
+        LimitTracker {
+            messenger,
+            value: 0,
+            max,
+        }
+    }
+
+    pub fn set_value(&mut self, value: usize) {
+        self.value = value;
+
+        let percentage_of_max = self.value as f64 / self.max as f64;
+
+        if percentage_of_max >= 1.0 {
+            self.messenger.send("Error: You are over your quota!");
+        } else if percentage_of_max >= 0.9 {
+            self.messenger
+                .send("Urgent warning: You've used up over 90% of your quota!");
+        } else if percentage_of_max >= 0.75 {
+            self.messenger
+                .send("Warning: You've used up over 75% of your quota!");
+        }
+    }
+}
+```
+
+```Rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockMessenger {
+        sent_messages: Vec<String>,
+    }
+
+    impl MockMessenger {
+        fn new() -> MockMessenger {
+            MockMessenger {
+                sent_messages: vec![],
+            }
+        }
+    }
+
+    impl Messenger for MockMessenger {
+        fn send(&self, message: &str) {
+            self.sent_messages.push(String::from(message));
+        }
+    }
+
+    #[test]
+    fn it_sends_an_over_75_percent_warning_message() {
+        let mock_messenger = MockMessenger::new();
+        let mut limit_tracker = LimitTracker::new(&mock_messenger, 100);
+
+        limit_tracker.set_value(80);
+
+        assert_eq!(mock_messenger.sent_messages.len(), 1);
+    }
+}
+```
+
+```Rust
+$ cargo test
+   Compiling limit-tracker v0.1.0 (file:///projects/limit-tracker)
+error[E0596]: cannot borrow `self.sent_messages` as mutable, as it is behind a `&` reference
+  --> src/lib.rs:58:13
+   |
+58 |             self.sent_messages.push(String::from(message));
+   |             ^^^^^^^^^^^^^^^^^^ `self` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+   |
+help: consider changing this to be a mutable reference in the `impl` method and the `trait` definition
+   |
+2  ~     fn send(&mut self, msg: &str);
+3  | }
+...
+56 |     impl Messenger for MockMessenger {
+57 ~         fn send(&mut self, message: &str) {
+   |
+
+For more information about this error, try `rustc --explain E0596`.
+error: could not compile `limit-tracker` (lib test) due to 1 previous error
+```
+```
+Мы не можем изменить тип MockMessengerдля отслеживания сообщений, поскольку send метод принимает неизменяемую ссылку на self. Мы также не можем использовать предложение из текста ошибки &mut self как в impl методе, так и в traitопределении. Мы не хотим изменять Messengerтип исключительно ради тестирования. Вместо этого нам нужно найти способ заставить наш тестовый код корректно работать с существующим дизайном.
+
+В этой ситуации внутренняя изменчивость может помочь! Мы сохраним объект sent_messagesвнутри объекта RefCell<T>, а затем sendметод сможет модифицировать его sent_messagesдля сохранения полученных нами сообщений. В листинге 15-22 показано, как это выглядит.
+```
+```Rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    struct MockMessenger {
+        sent_messages: RefCell<Vec<String>>,
+    }
+
+    impl MockMessenger {
+        fn new() -> MockMessenger {
+            MockMessenger {
+                sent_messages: RefCell::new(vec![]),
+            }
+        }
+    }
+
+    impl Messenger for MockMessenger {
+        fn send(&self, message: &str) {
+            self.sent_messages.borrow_mut().push(String::from(message));
+        }
+    }
+
+    #[test]
+    fn it_sends_an_over_75_percent_warning_message() {
+        // --snip--
+
+        assert_eq!(mock_messenger.sent_messages.borrow().len(), 1);
+    }
+}
+```
+```
+Для реализации метода sendпервый параметр по-прежнему представляет собой неизменяемое заимствование self, что соответствует определению признака. Мы вызываем borrow_mutin RefCell<Vec<String>>для self.sent_messagesполучения изменяемой ссылки на значение внутри RefCell<Vec<String>>, которое является вектором. Затем мы можем вызвать pushизменяемую ссылку на вектор для отслеживания сообщений, отправленных во время теста.
+
+Последнее изменение, которое нам нужно сделать, касается утверждения: чтобы узнать, сколько элементов находится во внутреннем векторе, мы вызываем borrowметод , RefCell<Vec<String>>чтобы получить неизменяемую ссылку на вектор.
+```
+
+
+### Memory Leak in Rust:
+
+```Rust
+fn main() {
+    let a = Rc::new(Cons(5, RefCell::new(Rc::new(Nil))));
+
+    println!("a initial rc count = {}", Rc::strong_count(&a));
+    println!("a next item = {:?}", a.tail());
+
+    let b = Rc::new(Cons(10, RefCell::new(Rc::clone(&a))));
+
+    println!("a rc count after b creation = {}", Rc::strong_count(&a));
+    println!("b initial rc count = {}", Rc::strong_count(&b));
+    println!("b next item = {:?}", b.tail());
+
+    if let Some(link) = a.tail() {
+        *link.borrow_mut() = Rc::clone(&b);
+    }
+
+    println!("b rc count after changing a = {}", Rc::strong_count(&b));
+    println!("a rc count after changing a = {}", Rc::strong_count(&a));
+
+    // Uncomment the next line to see that we have a cycle;
+    // it will overflow the stack.
+    // println!("a next item = {:?}", a.tail());
+}
+```
+
+```Rust
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
+
+#[derive(Debug)]
+struct Node {
+    value: i32,
+    parent: RefCell<Weak<Node>>,
+    children: RefCell<Vec<Rc<Node>>>,
+}
+```
+
+```Rust
+fn main() {
+    let leaf = Rc::new(Node {
+        value: 3,
+        parent: RefCell::new(Weak::new()),
+        children: RefCell::new(vec![]),
+    });
+
+    println!(
+        "leaf strong = {}, weak = {}",
+        Rc::strong_count(&leaf),
+        Rc::weak_count(&leaf),
+    );
+
+    {
+        let branch = Rc::new(Node {
+            value: 5,
+            parent: RefCell::new(Weak::new()),
+            children: RefCell::new(vec![Rc::clone(&leaf)]),
+        });
+
+        *leaf.parent.borrow_mut() = Rc::downgrade(&branch);
+
+        println!(
+            "branch strong = {}, weak = {}",
+            Rc::strong_count(&branch),
+            Rc::weak_count(&branch),
+        );
+
+        println!(
+            "leaf strong = {}, weak = {}",
+            Rc::strong_count(&leaf),
+            Rc::weak_count(&leaf),
+        );
+    }
+
+    println!("leaf parent = {:?}", leaf.parent.borrow().upgrade());
+    println!(
+        "leaf strong = {}, weak = {}",
+        Rc::strong_count(&leaf),
+        Rc::weak_count(&leaf),
+    );
+}
+```
+
+А теперь объяснение:
+
+```
+Если взглянуть на отношения с другой стороны, родительский узел должен владеть своими дочерними узлами: если родительский узел удаляется, его дочерние узлы также должны быть удалены. Однако дочерний узел не должен владеть своим родителем: если мы удаляем дочерний узел, родительский узел должен продолжать существовать. Это пример слабых ссылок!
+```
+
+##### 🔁 Проблема: циклические ссылки
+
+В Rust управление памятью осуществляется через `Rc<T>` (счётчик ссылок). Но у `Rc<T>` есть **одна большая проблема**:  
+> **Если два `Rc<T>` объекта ссылаются друг на друга, счётчики никогда не достигнут нуля → утечка памяти.**
+
+Чтобы избежать этого, используется `Weak<T>` — **слабая ссылка**, которая **не увеличивает strong count**.
+
+---
+
+##### 🧠 Ключевые понятия
+
+| Тип | Описание |
+|-----|--------|
+| `Rc<T>` | Умный указатель с подсчётом ссылок. Увеличивает **strong count**. |
+| `Weak<T>` | "Слабая" ссылка. Увеличивает **weak count**, но **не мешает освобождению памяти**. |
+| `downgrade()` | Превращает `Rc<T>` → `Weak<T>` |
+| `upgrade()` | Пробует превратить `Weak<T>` → `Rc<T>` (возвращает `Option<Rc<T>>`) |
+
+---
+
+##### 🔍 Разбор кода по шагам
+
+```rust
+let leaf = Rc::new(Node {
+    value: 3,
+    parent: RefCell::new(Weak::new()),
+    children: RefCell::new(vec![]),
+});
+```
+
+- Создаём `leaf` — листовой узел.
+- У него пока нет родителя (`parent = Weak::new()`), и нет детей.
+
+```rust
+println!("leaf strong = {}, weak = {}", Rc::strong_count(&leaf), Rc::weak_count(&leaf));
+```
+
+> Вывод: `leaf strong = 1, weak = 0`  
+> Пояснение: один `Rc` указывает на `leaf`, слабых ссылок пока нет.
+
+---
+
+###### 📦 Входим в блок:
+
+```rust
+let branch = Rc::new(Node {
+    value: 5,
+    parent: RefCell::new(Weak::new()),
+    children: RefCell::new(vec![Rc::clone(&leaf)]),
+});
+```
+
+- Создаём `branch` — узел-родитель.
+- Он содержит `leaf` в `children` → теперь **на `leaf` указывают 2 `Rc`**:
+  - Оригинальный `leaf`
+  - И `branch.children`
+
+```rust
+*leaf.parent.borrow_mut() = Rc::downgrade(&branch);
+```
+
+###### ❗ Здесь происходит `downgrade`
+
+- Мы хотим, чтобы `leaf` знал о своём родителе — `branch`.
+- Но если мы сделаем `Rc<...>`, будет **циклическая сильная ссылка**:
+  - `branch → leaf` (strong)
+  - `leaf → branch` (strong) ← нельзя! Это утечка.
+- Поэтому используем **слабую ссылку**: `Rc::downgrade(&branch)` создаёт `Weak<Node>`.
+
+> 🔽 `downgrade`: `Rc<Node>` → `Weak<Node>`
+
+Теперь:
+- `branch` держит `leaf` через `Rc` (strong)
+- `leaf` держит `branch` через `Weak` (weak) — безопасно!
+
+---
+
+###### 📊 Считаем ссылки:
+
+```rust
+println!("branch strong = {}, weak = {}", ...);
+```
+
+> `branch strong = 1` — только `branch` сам указывает на себя.  
+> `branch weak = 1` — потому что `leaf.parent` теперь ссылается на него через `Weak`.
+
+```rust
+println!("leaf strong = {}, weak = {}", ...);
+```
+
+> `leaf strong = 2` — `leaf` и `branch.children`  
+> `leaf weak = 0` — никто не ссылается слабо на `leaf`
+
+---
+
+###### 🧱 Выходим из блока
+
+```rust
+} // <- здесь `branch` выходит из области видимости
+```
+
+- `branch` уничтожается.
+- `Rc::strong_count` для `branch` становится 0 → память освобождается.
+- Но `Weak` ссылка в `leaf.parent` **не мешает удалению** — это и есть смысл `Weak`.
+
+---
+
+###### 🔍 Проверяем, что осталось:
+
+```rust
+println!("leaf parent = {:?}", leaf.parent.borrow().upgrade());
+```
+
+> ❗ `upgrade()` — пытается превратить `Weak<Node>` → `Rc<Node>`
+
+Но `branch` уже уничтожен!  
+Значит, `upgrade()` вернёт `None`.
+
+> Вывод: `leaf parent = None`
+
+```rust
+println!("leaf strong = {}, weak = {}", ...);
+```
+
+> `leaf strong = 1` — остался только один `Rc` (сам `leaf`)
+> `leaf weak = 0` — слабых ссылок на `leaf` нет
+
+---
+
+##### 🎯 Зачем `downgrade` и `upgrade`?
+
+| Функция | Когда используется | Зачем |
+|--------|---------------------|------|
+| `downgrade()` | Когда нужно создать **обратную ссылку**, чтобы **избежать цикла** | Превращает `Rc<T>` в `Weak<T>`, не увеличивая strong count |
+| `upgrade()` | Когда нужно **временно использовать** объект через `Weak<T>` | Пытается получить `Rc<T>`, если объект ещё жив. Возвращает `Option<Rc<T>>` (может быть `None`) |
+
+---
+
+##### 🔄 Пример аналогии
+
+Представь:
+- `Rc<T>` — как "владею объектом, он не умрёт, пока я жив".
+- `Weak<T>` — как "я знаю, где объект, но он может исчезнуть в любой момент".
+
+```rust
+let obj = Rc::new("data");
+let weak = Rc::downgrade(&obj);  // "следящая ссылка"
+
+// obj уничтожается
+drop(obj);
+
+let upgraded = weak.upgrade();  // попробуем получить обратно
+assert_eq!(upgraded, None);     // объект ушёл — ссылка мертва
+```
+
+---
+
+##### ✅ Вывод
+
+- `downgrade()` — чтобы **создать слабую ссылку** и **избежать утечки памяти** при циклах.
+- `upgrade()` — чтобы **временно получить доступ** к объекту через `Weak`, но **без гарантии**, что он ещё жив.
+
+> 💡 Это ключевой механизм для безопасной работы с графами, деревьями, двусвязными структурами в Rust.
+
+---
+
+Если бы мы не использовали `Weak` и `downgrade`, то:
+- `branch` держал бы `leaf` (`strong`)
+- `leaf` держал бы `branch` (`strong`)
+→ **Цикл ссылок → никто не умрёт → утечка памяти**
+
+А так — всё чисто и безопасно. 🧼✅
+
+
+
+
 ### Экосистема crates.io
 
 Внешние библиотеки от пользователей
