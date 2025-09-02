@@ -33,14 +33,14 @@ git remote set-url origin git@github.com:whoami/projectname.git
 
 # Почему я выбрал Rust
 
-![alt text](image-6.png)
+![alt text](misc/image-6.png)
 
 > рейтинг любимых языков программирования по опросу stackoverflow:
 
 Опрос:
 https://survey.stackoverflow.co/2024/technology#admired-and-desired
 
-![alt text](image-4.png)
+![alt text](misc/image-4.png)
 
 Что меня первично оттолкнуло:
 
@@ -107,10 +107,10 @@ Latency vs Throughput
     Если у вас высокий throughput, но большая latency, система сможет обработать много запросов, но каждый из них будет выполняться медленнее.
      
 
-![alt text](image-8.png)
+![alt text](misc/image-8.png)
 
 
-![alt text](image-9.png)
+![alt text](misc/image-9.png)
 
 исследование:
 https://arxiv.org/html/2405.11182v1
@@ -186,7 +186,7 @@ Rust через rustup автоматически скачивает предв�
 
 `rustup update`
 
-![alt text](image-10.png)
+![alt text](misc/image-10.png)
 
 # Начало работы как я создал этот проект
 
@@ -219,7 +219,7 @@ Cоздаёт и инициализирует проект вместе с cargo
 
 Будут аналогичны
 
-![alt text](image.png)
+![alt text](misc/image.png)
 
 Минимум ручной работы.
 
@@ -353,7 +353,7 @@ if err != nil {}
 
 ### Типы:
 
-![alt text](image-13.png)
+![alt text](misc/image-13.png)
 
 Arch - архитектура (x32 или x64 итд, хм, а может даже и x128)
 
@@ -365,7 +365,7 @@ Arch - архитектура (x32 или x64 итд, хм, а может даж
 
 https://doc.rust-lang.org/book/ch03-02-data-types.html#integer-overflow
 
-![alt text](image-12.png)
+![alt text](misc/image-12.png)
 
 #### Float
 
@@ -487,7 +487,7 @@ fn main() {
 }
 ```
 
-![alt text](image-14.png)
+![alt text](misc/image-14.png)
 
 # Функции
 
@@ -518,7 +518,7 @@ fn main() {
 }
 ```
 
-![alt text](image-16.png)
+![alt text](misc/image-16.png)
 
 А такое скомпилируется, поскольку statement let y = ... закрылся выражением;, а не другим statement.
 
@@ -557,7 +557,7 @@ fn main() {
 
 Какой из этих двух скомпилируется, а какой нет?
 
-![alt text](image-17.png)
+![alt text](misc/image-17.png)
 
 Number One
 
@@ -923,9 +923,9 @@ https://doc.rust-lang.org/std/ops/trait.Drop.html#tymethod.drop
 
 В C++ этот шаблон освобождения ресурсов в конце жизненного цикла элемента иногда называется Resource Acquisition Is Initialization (RAII)
 
-![alt text](image-18.png)
+![alt text](misc/image-18.png)
 
-![alt text](image-19.png)
+![alt text](misc/image-19.png)
 
 >Важно! Чтобы не было двойного освобождения, Rust сделает s1 недействительной! Это сделано, чтобы уйти от проблемы двойного освобождения. 
 
@@ -976,7 +976,7 @@ fn main() {
 }
 ```
 
-![alt text](image-20.png)
+![alt text](misc/image-20.png)
 
 >Глубокое копирование.
 
@@ -1414,7 +1414,7 @@ fn main() {
 }
 ```
 
-![alt text](image-22.png)
+![alt text](misc/image-22.png)
 
 # enums
 
@@ -1461,7 +1461,7 @@ https://doc.rust-lang.org/std/net/enum.IpAddr.html
 
 ## Null
 
-![alt text](image-23.png)
+![alt text](misc/image-23.png)
 
 ## Option
 
@@ -1682,7 +1682,7 @@ fn main() {
 }
 ```
 
-![alt text](image-21.png)
+![alt text](misc/image-21.png)
 
 ```Rust
 fn main() {
@@ -1696,7 +1696,7 @@ fn main() {
 
 
 
-![alt text](image-5.png)
+![alt text](misc/image-5.png)
 
 # Packages and Crates
 
@@ -2052,15 +2052,15 @@ let s = format!("{s1}-{s2}-{s3}");
 
 Попробовал, кстати, вот так сделать и вот что он мне пишет.
 
-![alt text](image-29.png)
+![alt text](misc/image-29.png)
 
 Так же не сработает и это
 
-![alt text](image-30.png)
+![alt text](misc/image-30.png)
 
 А теперь посмотрим на сигнатуру функции push_str()
 
-![alt text](image-31.png)
+![alt text](misc/image-31.png)
 
 Видим, что принимает ссылку, что достаточно очевидно
 
@@ -2069,7 +2069,7 @@ let s = format!("{s1}-{s2}-{s3}");
 Хотя... Не изи. Немного по другому. 
 Мы передаём исходную строку, прибавляем заимствованное, он затем возвращает строку, которую взял во владение. Прибавляемую оставляет (потому что ссылка). И возвращаем взятую во владение. Под капотом мне кажется это работает сложнее, ведь если нужно аллоцировать новую память, то придётся удалить строку и создать новую с конкатенированным результатом.
 
-![alt text](image-32.png)
+![alt text](misc/image-32.png)
 
 ```Rust
     let s1 = String::from("tic");
@@ -2267,7 +2267,7 @@ pub fn open_file() {
 }
 ```
 
-![alt text](image-33.png)
+![alt text](misc/image-33.png)
 
 ### unpwrap()
 
@@ -4740,11 +4740,11 @@ assert_eq!(upgraded, None);     // объект ушёл — ссылка мер
 
 ### Сборка проекта из исходников на C и C++ если в кратце:
 
-![alt text](image-2.png)
+![alt text](misc/image-2.png)
 
 ### Сборка проекта из исходников на Rust:
 
-![alt text](image-1.png)
+![alt text](misc/image-1.png)
 
 `cargo install --path "project_to_build" --locked`
 
@@ -4753,7 +4753,7 @@ assert_eq!(upgraded, None);     // объект ушёл — ссылка мер
 `sudo cp ~/.cargo/bin/<program> /usr/local/bin/`
 
 
-![alt text](image-11.png)
+![alt text](misc/image-11.png)
 
 
 4. Интерактивные элементы:  
@@ -4859,15 +4859,15 @@ npm
 
 О чём можно рассказать потом:
 
-![alt text](image-24.png)
+![alt text](misc/image-24.png)
 
-![alt text](image-25.png)
+![alt text](misc/image-25.png)
 
-![alt text](image-26.png)
+![alt text](misc/image-26.png)
 
-![alt text](image-27.png)
+![alt text](misc/image-27.png)
 
-![alt text](image-28.png)
+![alt text](misc/image-28.png)
 
     Многопоточность и распараллеливание.
 
